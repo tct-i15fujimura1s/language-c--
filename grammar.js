@@ -6,6 +6,20 @@ const _s_List = (sep, e) => seq(e, _repsq(sep, e));
 const _s_Rist = (sep, e) => seq(_repsq(e, sep), e);
 const _grp = $ => seq('(', $.expr, ')');
 
+const PREC = {
+  ASSIGN: 1,
+  LOGOR: 2,
+  LOGAND: 3,
+  OR: 4,
+  XOR: 5,
+  AND: 6,
+  EQ: 7,
+  COMP: 8,
+  SHIFT: 9,
+  ADD: 10,
+  MULTIPLY: 11
+};
+
 module.exports = grammar({
   name: "cmm",
 
@@ -36,7 +50,7 @@ module.exports = grammar({
 
     block: $ => seq('{', _repch($.declare_local_var, $.statement), '}'),
 
-    declare_local_var: $ => seq($.type, _list($.name, _optsq('=', $.e_assign))),
+    declare_local_var: $ => seq($.type, _list($.name, _optsq('=', $.e_binary))),
 
     statement: $ => choice($.st_if, $.st_while, $.st_do_while, $.st_for, $.st_return, $.st_break, $.st_continue, $.block, seq($.expr, ';'), ';'),
 
@@ -56,37 +70,39 @@ module.exports = grammar({
 
     st_continue: $ => seq('continue', ';'),
 
-    expr: $ => _list($.e_assign),
+    expr: $ => _list($.e_binary),
 
-    e_assign: $ => _s_List('=', $.e_logical_or),
+    e_binary: $ => choice(
+      ...[
+        ['=', PREC.ASSIGN],
+        ['||', PREC.LOGOR],
+        ['&&', PREC.LOGAND],
+        ['|', PREC.OR],
+        ['^', PREC.XOR],
+        ['&', PREC.AND],
+        ['==', PREC.EQ],
+        ['!=', PREC.EQ],
+        ['<', PREC.COMP],
+        ['<=', PREC.COMP],
+        ['>', PREC.COMP],
+        ['>=', PREC.COMP],
+        ['<<', PREC.SHIFT],
+        ['<<', PREC.SHIFT],
+        ['+', PREC.ADD],
+        ['-', PREC.ADD],
+        ['*', PREC.MULTIPLY],
+        ['/', PREC.MULTIPLY],
+        ['%', PREC.MULTIPLY]
+      ].map(([op, prc]) => prec.left(prc, seq($.e_unary, op, $.e_unary)))
+    ),
 
-    e_logical_or: $ => _s_List('||', $.e_logical_and),
+    e_unary: $ => seq(_repch('+', '-', '!', '~'), $.e_factor),
 
-    e_logical_and: $ => _s_List('&&', $.e_or),
-
-    e_or: $ => _s_List('|', $.e_xor),
-
-    e_xor: $ => _s_List('^', $.e_and),
-
-    e_and: $ => _s_List('&', $.e_eq),
-
-    e_eq: $ => _s_List(choice('==', '!='), $.e_comp),
-
-    e_comp: $ => _s_List(choice('<', '<=', '>', '>='), $.e_shift),
-
-    e_shift: $ => _s_List(choice('<<', '>>'), $.e_add),
-
-    e_add: $ => prec.left(_s_List(choice('+', '-'), $.e_multiply)),
-
-    e_multiply: $ => _s_List(choice('*', '/', '%'), $.e_uniterm),
-
-    e_uniterm: $ => seq(_repch('+', '-', '!', '~'), $.e_factor),
-
-    e_factor: $ => prec.right(16, choice($.name, $.const, $.funcall, _grp($), seq($.e_factor, '[', $.e_assign, ']'),
+    e_factor: $ => prec.right(16, choice($.name, $.const, $.funcall, _grp($), seq($.e_factor, '[', $.e_binary, ']'),
       seq($.e_factor, '.', $.name), seq('sizeof', _grp($)), seq('addrof', _grp($)),
       seq('chr', _grp($)), seq('ord', _grp($)), seq('bool', _grp($)))),
 
-    funcall: $ => seq($.name, '(', optional(_list($.e_assign)), ')'),
+    funcall: $ => seq($.name, '(', optional(_list($.e_binary)), ')'),
 
     type: $ => prec.right(8, choice('int', 'char', 'boolean', 'void', 'interrupt', $.name, seq($.type, '[', ']'))),
 
