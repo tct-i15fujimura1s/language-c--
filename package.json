@@ -1,0 +1,17 @@
+{
+  "name": "tree-sitter-c--",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nan": "^2.13.2"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.14.7"
+  }
+}
